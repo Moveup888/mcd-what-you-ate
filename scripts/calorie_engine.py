@@ -80,8 +80,16 @@ ALIASES = {
     "板烧鸡腿汉堡": "板烧鸡腿堡",
     "麦辣鸡腿堡": "麦辣鸡腿汉堡",
     "麦辣堡": "麦辣鸡腿汉堡",
-    "安格斯": "培根安格斯厚牛堡",
+    # ⚠️ 安格斯系列有 4 款口味/层数组合，热量差最多 296 kcal。
+    # 别名必须写到「层数 + 口味」粒度，否则会静默算错（详见 --doctor 基准项）。
+    "双层安格斯厚牛堡": "芝士双层安格斯厚牛堡",
+    "芝士双层安格斯": "芝士双层安格斯厚牛堡",
+    "培根双层安格斯": "培根双层安格斯厚牛堡",
     "双层安格斯": "芝士双层安格斯厚牛堡",
+    "芝士安格斯": "芝士安格斯厚牛堡",
+    "培根安格斯": "培根安格斯厚牛堡",
+    "双层牛堡": "芝士双层安格斯厚牛堡",
+    "安格斯": "芝士安格斯厚牛堡",
     "可乐": "可乐中杯",
     "雪碧": "雪碧中杯",
     "麦旋风": "奥利奥麦旋风",
@@ -93,7 +101,7 @@ ALIASES = {
     "无糖可乐": "无糖可口可乐中杯",
     "零度": "无糖可口可乐中杯",
     "牛奶": "纯牛奶（盒装）",
-    "豆浆": "优品豆浆中杯",
+    "豆浆": "优品豆浆大杯",
     "苹果汁": "100%苹果汁",
 }
 
@@ -147,7 +155,10 @@ def resolve_name(query: str, items: Dict[str, dict]) -> Optional[str]:
     low = q.lower()
     if low in ALIASES and ALIASES[low] in items:
         return ALIASES[low]
-    for alias, target in ALIASES.items():
+    # 按别名长度降序匹配：更具体的别名优先。
+    # ⚠️ 顺序不能反 —— 否则「双层安格斯」会被更短的「安格斯」抢先命中，
+    # 静默算成另一款产品（曾导致少算 296 kcal / 42% 误差）。
+    for alias, target in sorted(ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True):
         if alias.lower() in low and target in items:
             return target
     # 退化为子串匹配，取最短的（通常最贴近原意）
@@ -168,15 +179,19 @@ def met_kcal_per_min(met: float, weight_kg: float) -> float:
 
 
 def convert(kcal: float, weight_kg: float = DEFAULT_WEIGHT_KG) -> dict:
-    """把热量翻译成各类生活化当量。"""
-    out: dict = {}
-    if kcal <= 0:
-        out["zero"] = True
-        return out
+    """把热量翻译成各类生活化当量。
 
+    ⚠️ 铁律：无论热量是否为 0，返回的键集合必须**完全一致**。
+    调用方（Skill 与 JSON 消费端）依赖固定字段，任何提前 return 都会
+    让下游拿不到字段而 KeyError —— 这是本项目已修复过的真实 bug。
+    零热量时各字段自然为 0，并额外给出 zero=True 供展示层判断。
+    """
     stairs_kcal_min = met_kcal_per_min(MET_TABLE["爬楼梯"], weight_kg)
-    out["爬楼层数"] = kcal / (stairs_kcal_min * SECONDS_PER_FLOOR / 60.0)
-    out["爬楼分钟"] = kcal / stairs_kcal_min
+
+    out: dict = {
+        "爬楼层数": kcal / (stairs_kcal_min * SECONDS_PER_FLOOR / 60.0),
+        "爬楼分钟": kcal / stairs_kcal_min,
+    }
     out["爬楼高度米"] = out["爬楼层数"] * FLOOR_HEIGHT_M
 
     for key, met in (("跑步分钟", "跑步"), ("跳绳分钟", "跳绳"),
@@ -189,6 +204,8 @@ def convert(kcal: float, weight_kg: float = DEFAULT_WEIGHT_KG) -> dict:
     out["方糖块数"] = kcal / SUGAR_CUBE_KCAL
     out["食用油汤匙"] = kcal / OIL_SPOON_KCAL
     out["苹果个数"] = kcal / APPLE_KCAL
+
+    out["zero"] = kcal <= 0
     return out
 
 
@@ -282,6 +299,68 @@ def render(items: List[dict], weight_kg: float = DEFAULT_WEIGHT_KG) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------- 自检
+
+def doctor(table: Dict[str, dict]) -> int:
+    """自检：数据一致性 + 名称解析 + 边界安全 + 基准防回归。
+
+    设计意图：营养库是从官方 MCP 拉取的快照，官方随时可能改名/下架商品；
+    别名表也是人工维护的。两者一旦不同步，用户就会拿到**错误但看起来正常**的热量。
+    本自检把这类静默错误变成显式失败，返回码非 0 即表示有需修复的问题。
+    """
+    checks: List[Tuple[str, bool, str]] = []
+
+    checks.append(("营养库加载", len(table) > 100, "%d 条商品" % len(table)))
+
+    bad_alias = [(k, v) for k, v in ALIASES.items() if v not in table]
+    checks.append(("别名表目标均存在", not bad_alias,
+                   "共 %d 条别名，全部命中" % len(ALIASES) if not bad_alias
+                   else "指向不存在商品：%s" % bad_alias))
+
+    self_bad = [n for n in table if resolve_name(n, table) != n]
+    checks.append(("库内条目自解析唯一", not self_bad,
+                   "%d 条全部自洽" % len(table) if not self_bad
+                   else "解析串味：%s" % self_bad[:5]))
+
+    alias_fail = [k for k in ALIASES if resolve_name(k, table) is None]
+    checks.append(("别名全部可解析", not alias_fail,
+                   "全部可用" if not alias_fail else "无法解析：%s" % alias_fail[:5]))
+
+    keys_hot, keys_zero = set(convert(800).keys()), set(convert(0).keys())
+    checks.append(("零热量返回字段完整", keys_hot == keys_zero,
+                   "字段一致（%d 个）" % len(keys_hot) if keys_hot == keys_zero
+                   else "零热量缺少：%s" % (keys_hot - keys_zero)))
+
+    # 基准用例：数字一旦漂移，说明数据或换算被改坏
+    baseline = [
+        ("巨无霸", 513.0),
+        ("双层安格斯厚牛堡", 1003.0),   # 曾因短别名"安格斯"抢先而错算成 707
+        ("大薯", 379.0),
+        ("无糖可口可乐中杯", 0.0),
+    ]
+    for query, expect in baseline:
+        resolved = resolve_name(query, table)
+        got = table[resolved]["energyKcal"] if resolved else None
+        checks.append(("基准 %s = %.0f kcal" % (query, expect), got == expect,
+                       "实际 %s" % ("%.0f" % got if got is not None else "解析失败")))
+
+    total_kcal = sum(table[r]["energyKcal"] for r in ("巨无霸", "中薯条"))
+    checks.append(("基准合计 巨无霸+中薯条 = 802 kcal", total_kcal == 802.0,
+                   "实际 %.0f" % total_kcal))
+
+    width = max(len(name) for name, _, _ in checks)
+    for name, ok, detail in checks:
+        print("%s %-*s  %s" % ("✅" if ok else "❌", width, name, detail))
+
+    failed = [name for name, ok, _ in checks if not ok]
+    print()
+    if failed:
+        print("❌ 自检未通过：%d / %d 项失败 → %s" % (len(failed), len(checks), "、".join(failed)))
+        return 1
+    print("✅ 全部 %d 项自检通过。" % len(checks))
+    return 0
+
+
 # ---------------------------------------------------------------- 入口
 
 def build_records(names: List[str], items: Dict[str, dict]) -> Tuple[List[dict], List[str]]:
@@ -313,9 +392,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="体重(kg)，默认 60")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--list", action="store_true", help="列出营养库全部餐品")
+    ap.add_argument("--doctor", action="store_true",
+                    help="自检：营养库与别名表一致性、基准防回归")
     args = ap.parse_args(argv)
 
     table = load_nutrition()
+
+    if args.doctor:
+        return doctor(table)
 
     if args.list:
         print("营养库共 %d 条：" % len(table))
