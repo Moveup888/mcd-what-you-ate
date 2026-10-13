@@ -14,3 +14,7 @@
 *.py text eol=lf
 *.csv text eol=lf
 *.txt text eol=lf
+
+# ⚠️ 必须放在所有 *.md 规则之后（gitattributes 后匹配优先）
+# 参赛声明为官方原件，字节级不可改动 —— 禁止任何换行转换
+CONTEST_DECLARATION.md -text -diff
