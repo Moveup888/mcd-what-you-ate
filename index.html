@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mcd-what-you-ate · 热量翻译官</title>
+<meta name="description" content="把麦当劳餐品的热量翻译成「要爬多少层楼」——只翻译，不评判，每次都给你还债方案。">
+<style>
+:root{
+  --red:#D82830;
+  --red-deep:#A81B22;
+  --yellow:#F8E810;
+  --ink:#303030;
+  --brown:#412402;
+  --bg:#F8F8F8;
+  --muted:#6B6B6B;
+  --line:#E4E4E4;
+  --white:#fff;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;line-height:1.55;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:24px 20px 56px}
+
+/* ---------- 顶部 ---------- */
+.hero{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.hero-l{display:flex;align-items:center;gap:13px}
+.hero h1{margin:0;font-size:21px;letter-spacing:-.02em;font-weight:800}
+.hero h1 span{color:var(--red)}
+.hero .sub{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
+.tagline{background:var(--ink);color:#fff;font-size:12px;padding:6px 13px;border-radius:999px;white-space:nowrap}
+.note{
+  background:#fff;border:2px solid var(--ink);border-left:7px solid var(--red);
+  border-radius:12px;padding:10px 14px;font-size:13px;color:#4A4A4A;margin:0 0 18px;
+}
+.note b{color:var(--ink)}
+
+/* ---------- 布局 ---------- */
+.layout{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:18px;align-items:start}
+/* ⚠️ 必须写 minmax(0,1fr)，不能只写 1fr ——
+   1fr 的最小值是 min-content，内部只要有撑不缩的元素（长 SVG、nowrap 文字）
+   就会把整列顶宽，进而撑破整个页面，在手机上表现为横向溢出。 */
+@media(max-width:880px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.panel,.card{
+  background:#fff;border:2px solid var(--ink);border-radius:var(--r);
+  padding:15px;box-shadow:3px 3px 0 rgba(48,48,48,.10);
+}
+.card+.card{margin-top:14px}
+#stairSvg{display:block;width:100%;max-width:100%;height:auto}
+
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.panel-head h2{margin:0;font-size:15px;font-weight:800;letter-spacing:-.01em}
+.panel-head .hint{font-size:12px;color:var(--muted)}
+
+/* ---------- 搜索 ---------- */
+.search-row{display:flex;gap:8px;margin-bottom:10px}
+.search-row input{
+  flex:1;min-width:0;border:2px solid var(--ink);border-radius:11px;padding:9px 12px;
+  font-size:13.5px;font-family:inherit;color:var(--ink);background:#fff;outline:none;
+}
+.search-row input:focus{box-shadow:0 0 0 3px rgba(248,232,16,.55)}
+.search-row button{
+  border:2px solid var(--ink);border-radius:11px;background:var(--ink);color:#fff;
+  font-size:13.5px;font-weight:700;font-family:inherit;padding:9px 16px;cursor:pointer;
+  transition:transform .08s,background .15s;
+}
+.search-row button:hover{background:var(--red);border-color:var(--ink)}
+.search-row button:active{transform:translateY(2px)}
+
+/* ---------- 分类 ---------- */
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.tab{
+  border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:999px;
+  font-size:12.5px;font-weight:700;font-family:inherit;padding:5px 13px;cursor:pointer;
+  transition:background .15s;
+}
+.tab.on{background:var(--yellow);color:var(--brown)}
+.tab:hover:not(.on){background:#F1F1F1}
+
+/* ---------- 选品网格 ---------- */
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;
+  /* 高度对齐到「整数行」（行距约 62px × 4 行），不出现半行被切的观感 */
+  max-height:244px;overflow-y:auto;padding:2px;margin-bottom:4px;
+}
+@media(max-width:880px){.grid{max-height:none}}
+.pick{
+  border:2px solid #D8D8D8;background:#fff;border-radius:11px;padding:9px 10px;
+  font-family:inherit;font-size:12.5px;text-align:left;cursor:pointer;color:var(--ink);
+  display:flex;flex-direction:column;gap:3px;transition:.12s;line-height:1.35;
+}
+.pick:hover{border-color:var(--ink);background:#FFFBEA}
+/* 名字最多两行并预留两行高度 —— 网格才不会因名字长短而参差不齐 */
+.pick .pk-n{
+  font-weight:700;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;min-height:2.72em;
+}
+.pick .pk-k{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pick.on{border-color:var(--red);background:#FFF4F4;box-shadow:2px 2px 0 rgba(216,40,48,.25)}
+.pick.on .pk-k{color:var(--red);font-weight:700}
+.empty{font-size:13px;color:var(--muted);padding:14px 4px}
+/* 提示文字放在滚动区外面 —— 放里面会跟着一起被裁掉 */
+.grid-foot{font-size:11.5px;color:var(--muted);margin:2px 0 12px;display:none}
+
+/* ---------- 已点清单 ---------- */
+.basket{margin-top:12px;border-top:2px dashed var(--line);padding-top:12px}
+.basket-head{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.basket-head b{color:var(--ink);font-size:14px;font-variant-numeric:tabular-nums}
+.bar-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
+.bar-list li{
+  display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:999px;
+  padding:4px 6px 4px 12px;font-size:12.5px;background:#fff;font-weight:600;
+}
+.bar-list li em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:500}
+.bar-list li button{
+  border:0;background:#EFEFEF;color:var(--ink);width:18px;height:18px;border-radius:50%;
+  cursor:pointer;font-size:13px;line-height:1;font-family:inherit;display:grid;place-items:center;
+}
+.bar-list li button:hover{background:var(--red);color:#fff}
+
+/* ---------- 体重 ---------- */
+.weight-row{display:flex;align-items:center;gap:10px;margin-top:13px;font-size:13px}
+.weight-row label{font-weight:700;white-space:nowrap}
+.weight-row input[type=range]{flex:1;min-width:0;accent-color:var(--red);height:22px}
+.weight-row .wv{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap;min-width:52px;text-align:right}
+
+/* ---------- 主卡 ---------- */
+.card-main{
+  background:var(--ink);color:#fff;border-color:var(--ink);
+  box-shadow:4px 4px 0 var(--red);padding:18px;position:relative;overflow:hidden;
+}
+.card-main::after{
+  content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;
+  background:var(--red);opacity:.16;border-radius:50%;
+}
+.mc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;position:relative;z-index:1}
+.badge{
+  display:inline-block;font-size:12.5px;font-weight:800;padding:5px 13px;border-radius:999px;
+  border:2px solid var(--ink);letter-spacing:.02em;
+}
+.copy-btn{
+  border:2px solid #6E6E6E;background:transparent;color:#DFDFDF;border-radius:9px;
+  font-size:12px;font-family:inherit;padding:5px 11px;cursor:pointer;font-weight:600;
+}
+.copy-btn:hover{border-color:var(--yellow);color:var(--yellow)}
+.mc-label{font-size:13px;color:#B9B9B9;position:relative;z-index:1}
+.floors{
+  font-size:clamp(46px,8.4vw,66px);font-weight:900;line-height:1.02;letter-spacing:-.035em;
+  color:var(--yellow);font-variant-numeric:tabular-nums;position:relative;z-index:1;
+}
+.floors .unit{font-size:.36em;font-weight:800;color:#fff;margin-left:8px;letter-spacing:0}
+.mc-sub{font-size:13px;color:#CFCFCF;margin-top:8px;position:relative;z-index:1}
+.mc-sub b{color:#fff;font-variant-numeric:tabular-nums}
+.mc-sub .sep{margin:0 7px;color:#6E6E6E}
+
+/* ---------- 卡片标题 ---------- */
+.card h3{margin:0 0 11px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:7px}
+.card h3::before{content:"";width:5px;height:15px;background:var(--red);border-radius:2px;flex:none}
+
+/* ---------- 对比条 ---------- */
+.bar-row{display:grid;grid-template-columns:104px 1fr 74px;gap:10px;align-items:center;margin-bottom:8px;font-size:12.5px}
+.bar-row .bl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-row .bv{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+.bar{height:16px;background:#F0F0F0;border:2px solid var(--ink);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;transition:width .45s cubic-bezier(.3,1.3,.5,1)}
+.bar i.you{background:var(--red)}
+.bar i.lm{background:#C4C4C4}
+.bar-note{font-size:12.5px;color:var(--muted);margin-top:10px;padding-top:9px;border-top:2px dashed var(--line)}
+.bar-note b{color:var(--red)}
+
+/* ---------- 还债 ---------- */
+.chips{display:flex;flex-direction:column;gap:8px}
+.chip{
+  display:flex;align-items:center;gap:11px;border:2px solid var(--ink);border-radius:12px;
+  padding:10px 12px;background:#FFFDF0;
+}
+.chip .ic{flex:none;width:34px;height:34px;border-radius:9px;background:var(--yellow);border:2px solid var(--ink);display:grid;place-items:center;color:var(--brown)}
+.chip .ct{font-size:13px;line-height:1.35}
+.chip .ct b{font-size:15px;font-variant-numeric:tabular-nums}
+.chip .ct span{display:block;font-size:11.5px;color:var(--muted)}
+
+/* ---------- 其它当量 ---------- */
+.alt{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.alt div{border:2px solid var(--line);border-radius:11px;padding:9px 11px;background:#FCFCFC}
+.alt b{display:block;font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.alt span{font-size:11.5px;color:var(--muted)}
+
+/* ---------- 明细 ---------- */
+.detail{list-style:none;margin:0;padding:0}
+.detail li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:2px dashed var(--line);font-size:13.5px}
+.detail li:last-child{border-bottom:0;padding-bottom:0}
+.detail li .dn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detail li .dn em{font-style:normal;font-size:11.5px;color:var(--muted);margin-left:7px}
+.detail li .dk{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.detail li.sum{border-top:2px solid var(--ink);border-bottom:0;margin-top:5px;padding-top:10px;font-weight:800}
+.detail li.sum .dk{color:var(--red)}
+.miss{font-size:12.5px;color:var(--red);margin-top:10px;padding-top:9px;border-top:2px dashed var(--line)}
+
+/* ---------- 页脚 ---------- */
+.foot{margin-top:26px;font-size:12px;color:var(--muted);line-height:1.7}
+.foot b{color:var(--ink)}
+.foot p{margin:3px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="hero-l">
+      <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+        <rect x="2" y="2" width="48" height="48" rx="13" fill="#D82830" stroke="#303030" stroke-width="2.5"/>
+        <path d="M11 41h6.5v-6h6.5v-6h6.5v-6h6.5v-6" fill="none" stroke="#F8E810" stroke-width="4" stroke-linecap="square"/>
+        <circle cx="37" cy="12" r="4.6" fill="#F8E810" stroke="#303030" stroke-width="2"/>
+      </svg>
+      <div>
+        <h1>mcd-what-you-<span>ate</span></h1>
+        <p class="sub">热量翻译官 · 只翻译，不评判</p>
+      </div>
+    </div>
+    <div class="tagline">数据源：麦当劳官方 MCP</div>
+  </header>
+
+  <p class="note">
+    <b>这是界面原型。</b>真实使用时，你在 WorkBuddy 里说一句「我吃了巨无霸和中薯条」，就会得到右边这张卡片。
+    本页可交互 —— 点点餐品、拖拖体重，数字实时重算，全部走下面这套换算引擎。
+  </p>
+
+  <div class="layout">
+
+    <!-- ============ 左：点单 ============ -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>① 你吃了什么</h2>
+        <span class="hint">点一下加入</span>
+      </div>
+
+      <div class="search-row">
+        <input id="q" type="text" placeholder="也可直接打字，如：大薯 板烧 零度" autocomplete="off">
+        <button id="addBtn" type="button">翻译</button>
+      </div>
+
+      <div class="tabs" id="tabs"></div>
+      <div class="grid" id="grid"></div>
+      <div class="grid-foot" id="gridFoot"></div>
+
+      <div class="basket">
+        <div class="basket-head">已点 <b id="cnt">0</b> 件 · 合计 <b id="sumKcal">0</b> kcal</div>
+        <ul class="bar-list" id="basketList"></ul>
+      </div>
+
+      <div class="weight-row">
+        <label for="weight">体重</label>
+        <input id="weight" type="range" min="40" max="120" step="1" value="60">
+        <span class="wv" id="weightVal">60 kg</span>
+      </div>
+    </section>
+
+    <!-- ============ 右：结果 ============ -->
+    <section>
+      <div class="card card-main">
+        <div class="mc-top">
+          <span class="badge" id="badge" style="background:#E6E9ED;color:#303030">—</span>
+          <button class="copy-btn" id="copyBtn" type="button">复制分享文案</button>
+        </div>
+        <div class="mc-label" id="mcLabel">你这一单，要爬</div>
+        <div class="floors"><span id="floors">0</span><span class="unit" id="floorUnit">层楼</span></div>
+        <div class="mc-sub" id="mcSub"></div>
+      </div>
+
+      <div class="card">
+        <h3>爬多高？</h3>
+        <svg id="stairSvg" viewBox="0 0 520 300" width="100%" height="auto" role="img"
+             aria-label="一个卡通人物在无尽楼梯上向上爬"></svg>
+        <div id="bars"></div>
+      </div>
+
+      <div class="card">
+        <h3>怎么还（三选一）</h3>
+        <div class="chips" id="payoff"></div>
+      </div>
+
+      <div class="card">
+        <h3>换个说法</h3>
+        <div class="alt" id="alt"></div>
+      </div>
+
+      <div class="card">
+        <h3>这一单明细</h3>
+        <ul class="detail" id="detail"></ul>
+        <div id="miss"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <p><b>热量数据</b>来自麦当劳官方 MCP <code>list-nutrition-foods</code>，共 <b id="dbCount">0</b> 条商品，非估算值。</p>
+    <p><b>运动当量</b>按公开 MET 值换算（爬楼梯 8.8 / 跑步 8.0 / 跳绳 10.0 / 深蹲 5.0），
+       一层楼按 3 米、12 秒计。所有数字都可复算 —— 这也是本项目的原则。</p>
+    <p>结果仅作运动量参考，不构成营养或医疗建议。只翻译，不评判。</p>
+    <p>本作品为「麦当劳 MCP 创新挑战」参赛作品，非麦当劳官方产品。</p>
+  </footer>
+</div>
+
+<script id="engine">
+/* ============================================================
+   mcd-what-you-ate 换算引擎（JS 版）
+   —— 与 scripts/calorie_engine.py 保持完全一致的常量与算法。
+      任何一侧改动，两侧都必须同步，并跑 --doctor 校验基准值。
+   ============================================================ */
+
+const NUTRITION = [{"n":"芝士双层安格斯厚牛堡","k":1003,"p":58,"f":65,"c":46,"s":1373},{"n":"培根双层安格斯厚牛堡","k":987,"p":55,"f":64,"c":46,"s":1191},{"n":"培根安格斯厚牛堡","k":707,"p":34,"f":44,"c":43,"s":1037},{"n":"芝士安格斯厚牛堡","k":696,"p":32,"f":44,"c":43,"s":897},{"n":"巨无霸","k":513,"p":27,"f":26,"c":42,"s":961},{"n":"双层猪柳蛋麦满分","k":513,"p":29,"f":32,"c":26,"s":1210},{"n":"牛气满满","k":495,"p":26,"f":24,"c":42,"s":764},{"n":"不素之霸双层牛堡","k":493,"p":28,"f":27,"c":34,"s":1012},{"n":"麦辣鸡腿汉堡","k":485,"p":24,"f":24,"c":42,"s":1208},{"n":"双层深海鳕鱼堡","k":485,"p":28,"f":21,"c":46,"s":917},{"n":"果然多肉","k":478,"p":36,"f":17,"c":44,"s":1343},{"n":"“苹板”支撑Pro","k":476,"p":25,"f":18,"c":50,"s":1077},{"n":"绝代双翅","k":469,"p":32,"f":27,"c":23,"s":1167},{"n":"专“薯鱼”你","k":463,"p":18,"f":17,"c":57,"s":652},{"n":"火腿扒早安营养卷","k":444,"p":16,"f":24,"c":39,"s":1065},{"n":"浓浓黑巧雪冰大杯","k":444,"p":11,"f":14,"c":65,"s":258},{"n":"培根蔬萃双层牛堡","k":442,"p":24,"f":23,"c":34,"s":728},{"n":"猪柳炒双蛋堡","k":437,"p":25,"f":24,"c":29,"s":705},{"n":"双层吉士汉堡","k":429,"p":27,"f":22,"c":31,"s":1017},{"n":"图林根香肠早安营养卷","k":425,"p":14,"f":23,"c":38,"s":977},{"n":"原味板烧鸡腿炒双蛋堡","k":419,"p":27,"f":21,"c":30,"s":715},{"n":"板烧鸡腿堡","k":391,"p":23,"f":17,"c":35,"s":1041},{"n":"猪柳蛋麦满分","k":387,"p":23,"f":21,"c":25,"s":846},{"n":"鸡肉蛋沙拉叠叠卷","k":387,"p":17,"f":21,"c":31,"s":842},{"n":"那么大鸡排","k":385,"p":24,"f":21,"c":24,"s":996},{"n":"双层火腿扒麦满分","k":385,"p":21,"f":22,"c":26,"s":979},{"n":"大薯条","k":379,"p":6,"f":16,"c":50,"s":216},{"n":"麦香鸡","k":369,"p":15,"f":17,"c":39,"s":731},{"n":"大脆鸡扒麦满分","k":361,"p":16,"f":17,"c":35,"s":804},{"n":"浓浓黑巧雪冰中杯","k":359,"p":8,"f":12,"c":51,"s":224},{"n":"双层原味板烧鸡腿麦满分","k":355,"p":23,"f":17,"c":27,"s":984},{"n":"酥酥多笋卷","k":342,"p":14,"f":15,"c":36,"s":1044},{"n":"浓浓抹茶雪冰大杯","k":339,"p":8,"f":12,"c":48,"s":194},{"n":"热浓浓抹茶牛奶大杯","k":333,"p":14,"f":12,"c":41,"s":142},{"n":"麦麦脆汁鸡-带骨里脊","k":332,"p":22,"f":18,"c":16,"s":812},{"n":"麦麦脆汁鸡-琵琶腿","k":328,"p":21,"f":20,"c":16,"s":905},{"n":"麦香鱼","k":325,"p":16,"f":13,"c":35,"s":556},{"n":"特浓奶香雪冰大杯","k":309,"p":7,"f":12,"c":42,"s":192},{"n":"猪柳麦满分","k":308,"p":16,"f":16,"c":24,"s":781},{"n":"草莓麦旋风","k":295,"p":6,"f":9,"c":47,"s":122},{"n":"吉士汉堡包","k":294,"p":16,"f":12,"c":30,"s":673},{"n":"中薯条","k":289,"p":4,"f":12,"c":38,"s":165},{"n":"浓浓抹茶雪冰中杯","k":289,"p":7,"f":11,"c":39,"s":181},{"n":"朱古力新地","k":282,"p":5,"f":9,"c":44,"s":126},{"n":"脆脆薯条","k":279,"p":4,"f":14,"c":32,"s":540},{"n":"儿童鱼排堡","k":269,"p":15,"f":6,"c":36,"s":442},{"n":"特浓奶香雪冰中杯","k":269,"p":6,"f":11,"c":36,"s":180},{"n":"冰牛奶大杯","k":269,"p":15,"f":13,"c":23,"s":154},{"n":"奥利奥麦旋风","k":266,"p":5,"f":9,"c":40,"s":116},{"n":"麦麦趣鸡球","k":266,"p":17,"f":13,"c":19,"s":789},{"n":"鲜蔬蛋沙拉叠叠卷","k":266,"p":11,"f":14,"c":24,"s":518},{"n":"火腿扒麦满分","k":261,"p":14,"f":12,"c":24,"s":608},{"n":"烟肉蛋麦满分","k":260,"p":16,"f":10,"c":24,"s":483},{"n":"蜜汁快乐","k":258,"p":22,"f":9,"c":20,"s":721},{"n":"热奶铁大杯","k":249,"p":14,"f":11,"c":22,"s":134},{"n":"汉堡包","k":248,"p":13,"f":8,"c":29,"s":492},{"n":"原味板烧鸡腿麦满分","k":246,"p":15,"f":9,"c":25,"s":611},{"n":"草莓新地","k":245,"p":4,"f":6,"c":43,"s":84},{"n":"热牛奶大杯","k":240,"p":13,"f":11,"c":21,"s":137},{"n":"冰浓浓抹茶牛奶大杯","k":240,"p":9,"f":7,"c":33,"s":89},{"n":"热浓浓黑巧大杯","k":240,"p":13,"f":11,"c":21,"s":137},{"n":"冰燕麦奶大杯","k":239,"p":5,"f":9,"c":32,"s":174},{"n":"热浓浓抹茶牛奶中杯","k":238,"p":11,"f":8,"c":29,"s":104},{"n":"香芋派","k":232,"p":2,"f":12,"c":28,"s":159},{"n":"麦旋酷阳光橙","k":228,"p":1,"f":2,"c":50,"s":77},{"n":"麦辣鸡翅-2块","k":224,"p":13,"f":15,"c":9,"s":537},{"n":"可乐大杯","k":224,"p":0,"f":0,"c":55,"s":0},{"n":"冰牛奶中杯","k":224,"p":13,"f":11,"c":19,"s":128},{"n":"yeyeyeye奶冻款","k":223,"p":1,"f":4,"c":43,"s":37},{"n":"卡布奇诺大杯","k":223,"p":13,"f":10,"c":20,"s":120},{"n":"热燕麦奶铁大杯","k":222,"p":5,"f":8,"c":29,"s":152},{"n":"菠萝派","k":221,"p":2,"f":11,"c":27,"s":147},{"n":"麦乐鸡5块","k":213,"p":12,"f":12,"c":13,"s":422},{"n":"热燕麦奶大杯","k":213,"p":4,"f":8,"c":28,"s":156},{"n":"热浓浓燕麦黑巧大杯","k":213,"p":4,"f":8,"c":28,"s":156},{"n":"yeyeyeye爆珠款","k":212,"p":1,"f":3,"c":42,"s":122},{"n":"小薯条","k":210,"p":3,"f":9,"c":28,"s":120},{"n":"柠萌风味薄皮焦香V翅","k":204,"p":18,"f":11,"c":6,"s":768},{"n":"脆香油条","k":202,"p":5,"f":12,"c":19,"s":230},{"n":"优品豆浆大杯","k":202,"p":8,"f":4,"c":33,"s":43},{"n":"冰燕麦奶中杯","k":199,"p":4,"f":8,"c":26,"s":145},{"n":"冰浓浓抹茶牛奶中杯","k":196,"p":8,"f":6,"c":25,"s":80},{"n":"薄皮焦香V翅","k":192,"p":17,"f":11,"c":6,"s":594},{"n":"热奶铁中杯","k":186,"p":11,"f":8,"c":17,"s":99},{"n":"阳光柠檬红茶大杯","k":178,"p":0,"f":0,"c":43,"s":25},{"n":"热牛奶中杯","k":176,"p":10,"f":8,"c":15,"s":101},{"n":"热浓浓黑巧中杯","k":176,"p":10,"f":8,"c":15,"s":101},{"n":"蜜汁BBQ风味薄皮脆汁鸡-琵琶腿","k":173,"p":18,"f":9,"c":5,"s":547},{"n":"麦乐鸡4块","k":170,"p":10,"f":10,"c":11,"s":337},{"n":"大杯怡泉+C","k":168,"p":0,"f":0,"c":41,"s":0},{"n":"热燕麦奶铁中杯","k":167,"p":4,"f":6,"c":22,"s":112},{"n":"热焦糖玛奇朵","k":167,"p":9,"f":7,"c":15,"s":88},{"n":"卡布奇诺中杯","k":167,"p":9,"f":7,"c":15,"s":88},{"n":"【美汁源】“黄金橙橙”","k":165,"p":0,"f":0,"c":41,"s":53},{"n":"蒜了吧黄油风味薄皮脆汁鸡-琵琶腿","k":164,"p":19,"f":6,"c":6,"s":867},{"n":"冰奶铁大杯","k":162,"p":9,"f":7,"c":15,"s":85},{"n":"雪碧大杯","k":160,"p":0,"f":0,"c":39,"s":45},{"n":"热燕麦奶中杯","k":157,"p":3,"f":6,"c":21,"s":114},{"n":"热浓浓燕麦黑巧中杯","k":157,"p":3,"f":6,"c":21,"s":114},{"n":"蜜汁BBQ风味薄皮脆汁鸡-带骨里脊","k":152,"p":20,"f":5,"c":6,"s":635},{"n":"优品豆浆小杯","k":151,"p":6,"f":3,"c":25,"s":32},{"n":"冰奶铁中杯","k":148,"p":8,"f":7,"c":13,"s":77},{"n":"冰焦糖玛奇朵","k":148,"p":8,"f":7,"c":13,"s":77},{"n":"可乐中杯","k":147,"p":0,"f":0,"c":36,"s":0},{"n":"热牛奶小杯","k":147,"p":8,"f":7,"c":13,"s":84},{"n":"冰牛奶小杯","k":147,"p":8,"f":7,"c":13,"s":84},{"n":"冰浓浓黑巧大杯","k":147,"p":8,"f":7,"c":13,"s":84},{"n":"抹茶阿芙佳朵","k":147,"p":3,"f":4,"c":23,"s":50},{"n":"脆薯饼","k":146,"p":1,"f":9,"c":14,"s":311},{"n":"冰燕麦奶铁大杯","k":145,"p":4,"f":5,"c":19,"s":96},{"n":"迷你朱古力新地","k":140,"p":3,"f":4,"c":22,"s":63},{"n":"咖啡阿芙佳朵","k":139,"p":4,"f":4,"c":21,"s":49},{"n":"冰浓浓黑巧中杯","k":135,"p":8,"f":6,"c":12,"s":77},{"n":"热奶铁小杯","k":134,"p":8,"f":6,"c":12,"s":72},{"n":"皮蛋鸡肉粥","k":133,"p":6,"f":3,"c":20,"s":611},{"n":"冰燕麦奶铁中杯","k":132,"p":3,"f":5,"c":17,"s":87},{"n":"冰浓浓燕麦黑巧大杯","k":131,"p":3,"f":5,"c":17,"s":95},{"n":"冰燕麦奶小杯","k":131,"p":3,"f":5,"c":17,"s":95},{"n":"热燕麦奶小杯","k":131,"p":3,"f":5,"c":17,"s":95},{"n":"纯牛奶（盒装）","k":129,"p":7,"f":7,"c":10,"s":73},{"n":"蒜了吧黄油风味薄皮脆汁鸡-带骨里脊","k":126,"p":19,"f":2,"c":4,"s":750},{"n":"热朱古力","k":125,"p":2,"f":2,"c":22,"s":107},{"n":"迷你草莓新地","k":122,"p":2,"f":3,"c":21,"s":42},{"n":"柠檬拉明顿","k":121,"p":2,"f":7,"c":12,"s":35},{"n":"草莓拉明顿","k":121,"p":2,"f":8,"c":11,"s":34},{"n":"雪菜脆笋鸡肉粥","k":120,"p":4,"f":2,"c":22,"s":552},{"n":"热燕麦奶铁小杯","k":120,"p":3,"f":5,"c":16,"s":81},{"n":"冰浓浓燕麦黑巧中杯","k":120,"p":2,"f":5,"c":16,"s":87},{"n":"阳光柠檬红茶中杯","k":117,"p":0,"f":0,"c":29,"s":17},{"n":"中杯怡泉+C","k":110,"p":0,"f":0,"c":27,"s":0},{"n":"可乐小杯","k":107,"p":0,"f":0,"c":26,"s":0},{"n":"迷你薯条","k":106,"p":2,"f":4,"c":14,"s":61},{"n":"雪碧中杯","k":105,"p":0,"f":0,"c":26,"s":29},{"n":"圆筒冰淇淋","k":93,"p":2,"f":3,"c":14,"s":36},{"n":"100%苹果汁","k":88,"p":0,"f":0,"c":21,"s":0},{"n":"大杯玉米杯","k":87,"p":4,"f":1,"c":12,"s":2},{"n":"德式图林根香肠","k":87,"p":5,"f":6,"c":2,"s":293},{"n":"冰奶铁小杯","k":86,"p":5,"f":4,"c":8,"s":44},{"n":"阳光柠檬红茶小杯","k":85,"p":0,"f":0,"c":21,"s":12},{"n":"冰燕麦奶铁小杯","k":77,"p":2,"f":3,"c":10,"s":50},{"n":"雪碧小杯","k":76,"p":0,"f":0,"c":19,"s":21},{"n":"小杯玉米杯","k":53,"p":2,"f":1,"c":7,"s":1},{"n":"苹果片","k":32,"p":0,"f":0,"c":7,"s":0},{"n":"小杯鲜萃咖啡","k":15,"p":1,"f":0,"c":3,"s":2},{"n":"冰美式大杯","k":14,"p":1,"f":0,"c":2,"s":0},{"n":"热美式大杯","k":14,"p":1,"f":0,"c":2,"s":0},{"n":"大杯鲜萃咖啡","k":13,"p":1,"f":0,"c":0,"s":3},{"n":"浓缩咖啡","k":13,"p":1,"f":0,"c":2,"s":0},{"n":"冰美式中杯","k":13,"p":1,"f":0,"c":2,"s":0},{"n":"热美式中杯","k":13,"p":1,"f":0,"c":2,"s":0},{"n":"冰美式小杯","k":10,"p":1,"f":0,"c":1,"s":0},{"n":"热美式小杯","k":10,"p":1,"f":0,"c":1,"s":0},{"n":"锡兰红茶","k":2,"p":0,"f":0,"c":0,"s":0},{"n":"川宁伯爵红茶","k":2,"p":0,"f":0,"c":0,"s":0},{"n":"无糖可口可乐中杯","k":0,"p":0,"f":0,"c":1,"s":35},{"n":"无糖可口可乐大杯","k":0,"p":0,"f":0,"c":1,"s":53},{"n":"无糖可口可乐小杯","k":0,"p":0,"f":0,"c":0,"s":25},{"n":"纯悦","k":0,"p":0,"f":0,"c":0,"s":0}];
+
+const MET = { stairs: 8.8, run: 8.0, rope: 10.0, squat: 5.0, walk: 4.3, bike: 7.5 };
+const FLOOR_M = 3.0;
+const SEC_PER_FLOOR = 12.0;
+const SQUATS_PER_MIN = 30.0;
+const RICE = 174.0, SUGAR = 16.0, OIL = 90.0, APPLE = 52.0;
+
+const LANDMARKS = [
+  ["深圳平安金融中心", 599],
+  ["广州塔", 600],
+  ["上海中心大厦", 632],
+  ["珠穆朗玛峰", 8848]
+];
+
+const RANKS = [
+  [300, "青铜麦友"], [600, "白银麦友"], [900, "黄金麦友"],
+  [1300, "铂金麦友"], [2000, "钻石麦友"], [Infinity, "王者巨无霸"]
+];
+
+const RANK_STYLE = {
+  "青铜麦友":  { bg: "#EBCFAC", fg: "#412402" },
+  "白银麦友":  { bg: "#E6E9ED", fg: "#303030" },
+  "黄金麦友":  { bg: "#F8E810", fg: "#412402" },
+  "铂金麦友":  { bg: "#CFF3F5", fg: "#0C4A4E" },
+  "钻石麦友":  { bg: "#DCE7FF", fg: "#1B3A7A" },
+  "王者巨无霸": { bg: "#D82830", fg: "#FFFFFF" }
+};
+
+/* ⚠️ 别名必须按 key 长度降序匹配。
+   顺序反了会让「双层安格斯」被更短的「安格斯」抢先命中，
+   静默算成另一款产品（曾导致少算 296 kcal / 42% 误差）。 */
+const ALIASES = {
+  "巨无霸汉堡": "巨无霸",
+  "big mac": "巨无霸",
+  "大薯": "大薯条",
+  "中薯": "中薯条",
+  "小薯": "小薯条",
+  "薯条": "中薯条",
+  "板烧": "板烧鸡腿堡",
+  "板烧鸡腿汉堡": "板烧鸡腿堡",
+  "麦辣鸡腿堡": "麦辣鸡腿汉堡",
+  "麦辣堡": "麦辣鸡腿汉堡",
+  "双层安格斯厚牛堡": "芝士双层安格斯厚牛堡",
+  "芝士双层安格斯": "芝士双层安格斯厚牛堡",
+  "培根双层安格斯": "培根双层安格斯厚牛堡",
+  "双层安格斯": "芝士双层安格斯厚牛堡",
+  "芝士安格斯": "芝士安格斯厚牛堡",
+  "培根安格斯": "培根安格斯厚牛堡",
+  "双层牛堡": "芝士双层安格斯厚牛堡",
+  "安格斯": "芝士安格斯厚牛堡",
+  "可乐": "可乐中杯",
+  "雪碧": "雪碧中杯",
+  "麦旋风": "奥利奥麦旋风",
+  "圆筒": "圆筒冰淇淋",
+  "甜筒": "圆筒冰淇淋",
+  "麦乐鸡": "麦乐鸡5块",
+  "鲜萃": "大杯鲜萃咖啡",
+  "咖啡": "大杯鲜萃咖啡",
+  "无糖可乐": "无糖可口可乐中杯",
+  "零度": "无糖可口可乐中杯",
+  "牛奶": "纯牛奶（盒装）",
+  "豆浆": "优品豆浆大杯",
+  "苹果汁": "100%苹果汁"
+};
+
+const TABLE = {};
+NUTRITION.forEach(function (o) { TABLE[o.n] = o; });
+
+function resolveName(q) {
+  q = String(q || "").trim();
+  if (!q) return null;
+  if (TABLE[q]) return q;
+  const low = q.toLowerCase();
+  if (ALIASES[low] && TABLE[ALIASES[low]]) return ALIASES[low];
+  const keys = Object.keys(ALIASES).sort(function (a, b) { return b.length - a.length; });
+  for (const a of keys) {
+    if (low.indexOf(a.toLowerCase()) !== -1 && TABLE[ALIASES[a]]) return ALIASES[a];
+  }
+  let hits = Object.keys(TABLE).filter(function (n) { return n.indexOf(q) !== -1; });
+  if (hits.length) return hits.sort(function (a, b) { return a.length - b.length; })[0];
+  hits = Object.keys(TABLE).filter(function (n) { return q.indexOf(n) !== -1; });
+  if (hits.length) return hits.sort(function (a, b) { return b.length - a.length; })[0];
+  return null;
+}
+
+function metKcalPerMin(met, w) { return met * w / 60.0; }
+
+/* ⚠️ 铁律：无论热量是否为 0，返回的键集合必须完全一致。
+   任何提前 return 都会让下游 KeyError —— 这是已修复过的真实 bug。 */
+function convert(kcal, w) {
+  const sm = metKcalPerMin(MET.stairs, w);
+  const out = {
+    "爬楼层数": kcal / (sm * SEC_PER_FLOOR / 60.0),
+    "爬楼分钟": kcal / sm
+  };
+  out["爬楼高度米"] = out["爬楼层数"] * FLOOR_M;
+  out["跑步分钟"] = kcal / metKcalPerMin(MET.run, w);
+  out["跳绳分钟"] = kcal / metKcalPerMin(MET.rope, w);
+  out["快走分钟"] = kcal / metKcalPerMin(MET.walk, w);
+  out["骑车分钟"] = kcal / metKcalPerMin(MET.bike, w);
+  out["深蹲次数"] = kcal / (metKcalPerMin(MET.squat, w) / SQUATS_PER_MIN);
+  out["白米饭碗数"] = kcal / RICE;
+  out["方糖块数"] = kcal / SUGAR;
+  out["食用油汤匙"] = kcal / OIL;
+  out["苹果个数"] = kcal / APPLE;
+  out["zero"] = kcal <= 0;
+  return out;
+}
+
+function rankOf(kcal) {
+  for (const r of RANKS) { if (kcal < r[0]) return r[1]; }
+  return RANKS[RANKS.length - 1][1];
+}
+
+function landmarkNote(h) {
+  if (h <= 0) return null;
+  for (const l of LANDMARKS) {
+    if (h >= l[1]) return { ratio: h / l[1], name: l[0], h: l[1] };
+  }
+  return null;
+}
+
+function nextLandmark(h) {
+  for (const l of LANDMARKS) { if (h < l[1]) return { name: l[0], h: l[1], gap: l[1] - h }; }
+  return null;
+}
+
+function payoffPlans(kcal, w) {
+  const c = convert(kcal, w);
+  if (c.zero) return [];
+  return [
+    { ic: "stairs", t: "爬楼梯", v: Math.round(c["爬楼分钟"]) + " 分钟", s: "约 " + Math.round(c["爬楼层数"]) + " 层" },
+    { ic: "run",    t: "慢跑",   v: Math.round(c["跑步分钟"]) + " 分钟", s: "约 " + (c["跑步分钟"] * 8 / 60).toFixed(1) + " 公里" },
+    { ic: "rope",   t: "跳绳",   v: Math.round(c["跳绳分钟"]) + " 分钟", s: "大约 " + Math.round(c["跳绳分钟"] * 100) + " 下" }
+  ];
+}
+
+function buildRecords(names) {
+  const records = [], missing = [];
+  names.forEach(function (raw) {
+    const hit = resolveName(raw);
+    if (!hit) { missing.push(raw); return; }
+    const row = TABLE[hit];
+    records.push({
+      name: row.n, query: raw, kcal: row.k,
+      protein: row.p, fat: row.f, carbohydrate: row.c, sodium: row.s
+    });
+  });
+  return { records: records, missing: missing };
+}
+
+globalThis.Engine = {
+  NUTRITION: NUTRITION, TABLE: TABLE, ALIASES: ALIASES,
+  resolveName: resolveName, convert: convert, rankOf: rankOf,
+  landmarkNote: landmarkNote, nextLandmark: nextLandmark,
+  payoffPlans: payoffPlans, buildRecords: buildRecords,
+  RANK_STYLE: RANK_STYLE, FLOOR_M: FLOOR_M, RICE: RICE, SUGAR: SUGAR, OIL: OIL, APPLE: APPLE
+};
+</script>
+
+<script>
+(function () {
+  "use strict";
+  const E = globalThis.Engine;
+  const $ = function (s) { return document.querySelector(s); };
+
+  const TABS = [["main", "主食"], ["side", "小食"], ["drink", "饮品"], ["dessert", "甜品"]];
+  const state = { basket: ["巨无霸", "中薯条"], tab: "main", q: "", weight: 60, missing: [] };
+
+  function catOf(n) {
+    if (/可乐|雪碧|咖啡|牛奶|豆浆|果汁|茶|美式|拿铁|摩卡|奶茶|奶昔|汽水|饮用水|矿泉水/.test(n)) return "drink";
+    if (/冰淇淋|新地|麦旋风|派$|圆筒|甜筒|圣代|蛋糕|可颂/.test(n)) return "dessert";
+    if (/薯条|薯饼|麦乐鸡|鸡翅|玉米杯|鸡块|鸡条|鸡柳|沙拉|苹果片|玉米粒/.test(n)) return "side";
+    return "main";
+  }
+
+  /* 图标全部内联 SVG：不依赖 emoji，避免四套系统渲染出四套画风 */
+  const ICONS = {
+    stairs: '<path d="M3 20.5h4.3v-4.3h4.3v-4.3h4.3V7.6H20"/>',
+    run: '<circle cx="15.2" cy="4.8" r="2.4" fill="currentColor" stroke="none"/>' +
+         '<path d="M14.4 8.8 12.4 14.2 15 16.8 13.8 20.6"/>' +
+         '<path d="M12.4 14.2 7.6 16.4 5.4 20.6"/>' +
+         '<path d="M14.2 10.6 18.4 12.4"/>' +
+         '<path d="M14.2 10.6 9.6 8.8"/>',
+    rope: '<path d="M3.6 20.6C3.6-4 20.4-4 20.4 20.6"/>' +
+          '<circle cx="12" cy="5.2" r="2.3" fill="currentColor" stroke="none"/>' +
+          '<path d="M12 7.6v5"/>' +
+          '<path d="M12 8.9 9.4 11.3M12 8.9 14.6 11.3"/>' +
+          '<path d="M12 12.6 9.6 17.4M12 12.6 14.4 17.4"/>'
+  };
+  function icon(k) {
+    return '<svg class="ic" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' + ICONS[k] + "</svg>";
+  }
+
+  function fmt(n) { return Number(n).toLocaleString("zh-CN"); }
+  function dec(n, d) { return Number(n).toFixed(d); }
+
+  /* ---------- 左侧：分类与选品 ---------- */
+  function renderTabs() {
+    $("#tabs").innerHTML = TABS.map(function (t) {
+      return '<button type="button" class="tab' + (state.tab === t[0] && !state.q ? " on" : "") +
+        '" data-tab="' + t[0] + '">' + t[1] + "</button>";
+    }).join("");
+  }
+
+  function renderGrid() {
+    const all = Object.keys(E.TABLE);
+    let list;
+    if (state.q) {
+      const kw = state.q.trim().toLowerCase();
+      list = all.filter(function (n) { return n.toLowerCase().indexOf(kw) !== -1; });
+    } else {
+      list = all.filter(function (n) { return catOf(n) === state.tab; });
+    }
+    list.sort(function (a, b) { return E.TABLE[b].k - E.TABLE[a].k; });
+    const top = list.slice(0, state.q ? 24 : 14);
+
+    if (!top.length) {
+      $("#grid").innerHTML = '<div class="empty">营养库里没找到「' + escapeHtml(state.q) + '」。</div>';
+      $("#gridFoot").style.display = "none";
+      return;
+    }
+    $("#grid").innerHTML = top.map(function (n) {
+      const on = state.basket.indexOf(n) !== -1;
+      return '<button type="button" class="pick' + (on ? " on" : "") + '" data-name="' + escapeHtml(n) + '">' +
+        '<span class="pk-n">' + escapeHtml(n) + "</span>" +
+        '<span class="pk-k">' + fmt(E.TABLE[n].k) + " kcal</span></button>";
+    }).join("");
+
+    const more = list.length - top.length;
+    const foot = $("#gridFoot");
+    if (more > 0) {
+      foot.style.display = "block";
+      foot.textContent = "共 " + list.length + " 款，下面还有 " + more +
+        " 款 —— 列表可滚动，或直接在上面输入关键词。";
+    } else {
+      foot.style.display = "none";
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderBasket() {
+    $("#cnt").textContent = state.basket.length;
+    $("#basketList").innerHTML = state.basket.map(function (n, i) {
+      return "<li>" + escapeHtml(n) + " <em>" + fmt(E.TABLE[n].k) + "</em>" +
+        '<button type="button" data-del="' + i + '" aria-label="移除">&times;</button></li>';
+    }).join("");
+  }
+
+  /* ---------- 爬楼插画 ---------- */
+  function stairSvg() {
+    const steps = 8, sw = 55, sh = 24, x0 = 30, yBot = 300, yTop0 = 246;
+    let d = "M" + x0 + " " + yBot;
+    for (let i = 0; i < steps; i++) {
+      const x1 = x0 + sw * i, x2 = x0 + sw * (i + 1), y = yTop0 - sh * i;
+      d += " L" + x1 + " " + y + " L" + x2 + " " + y;
+    }
+    const xEnd = x0 + sw * steps;
+    d += " L" + xEnd + " " + yBot + " Z";
+
+    const cloud = function (cx, cy, sc) {
+      return '<g transform="translate(' + cx + "," + cy + ") scale(" + sc + ')">' +
+        '<circle cx="-17" cy="2" r="13" fill="#EAEAEA"/>' +
+        '<circle cx="0" cy="-6" r="17" fill="#EAEAEA"/>' +
+        '<circle cx="17" cy="3" r="12" fill="#EAEAEA"/></g>';
+    };
+
+    const guy =
+      '<g transform="translate(277,150) scale(1.1)">' +
+        '<path d="M-3,0 L-5,-24" stroke="#303030" stroke-width="7" stroke-linecap="round" fill="none"/>' +
+        '<path d="M4,0 L13,-23" stroke="#303030" stroke-width="7" stroke-linecap="round" fill="none"/>' +
+        '<path d="M-13,-48 Q0,-54 13,-48 L11,-24 Q0,-19 -11,-24 Z" fill="#F8E810" stroke="#303030" stroke-width="3.4" stroke-linejoin="round"/>' +
+        '<path d="M11,-45 L20,-60 L26,-75" stroke="#303030" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
+        '<path d="M-11,-45 L-19,-34" stroke="#303030" stroke-width="6" stroke-linecap="round" fill="none"/>' +
+        '<circle cx="0" cy="-63" r="12" fill="#FFFFFF" stroke="#303030" stroke-width="3.4"/>' +
+        '<path d="M-12,-65 a12,12 0 0 1 24,0 q-4,-6 -12,-6 q-8,0 -12,6 z" fill="#303030"/>' +
+        '<circle cx="-4.2" cy="-62" r="1.7" fill="#303030"/>' +
+        '<circle cx="4.2" cy="-62" r="1.7" fill="#303030"/>' +
+        '<path d="M-4,-56 q4,4 8,0" stroke="#303030" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
+        '<path d="M16,-74 q3.2,4.4 0,6.6 q-3.2,-2.2 0,-6.6z" fill="#FFFFFF" stroke="#303030" stroke-width="1.6"/>' +
+        '<path d="M21.5,-66 q2.6,3.6 0,5.4 q-2.6,-1.8 0,-5.4z" fill="#FFFFFF" stroke="#303030" stroke-width="1.6"/>' +
+      "</g>";
+
+    return cloud(452, 46, 1) + cloud(70, 214, 0.72) +
+      '<path d="' + d + '" fill="#D82830" stroke="#303030" stroke-width="3.2" stroke-linejoin="round"/>' +
+      guy;
+  }
+
+  /* ---------- 右侧：结果渲染 ---------- */
+  function renderResult() {
+    const res = E.buildRecords(state.basket);
+    const recs = res.records;
+    const total = recs.reduce(function (a, b) { return a + b.kcal; }, 0);
+    const c = E.convert(total, state.weight);
+    const rank = E.rankOf(total);
+    const style = E.RANK_STYLE[rank];
+
+    const badge = $("#badge");
+    badge.textContent = recs.length ? rank : "还没点东西";
+    badge.style.background = recs.length ? style.bg : "#E6E9ED";
+    badge.style.color = recs.length ? style.fg : "#303030";
+
+    if (!recs.length) {
+      $("#mcLabel").textContent = "左边点几个餐品试试";
+      $("#floors").textContent = "0";
+      $("#floorUnit").textContent = "层楼";
+      $("#mcSub").innerHTML = "数字来自麦当劳官方营养库，不是估算值。";
+      $("#bars").innerHTML = "";
+      $("#payoff").innerHTML = '<div class="chip"><div class="ct">还没点东西，先选几个餐品吧。</div></div>';
+      $("#alt").innerHTML = "";
+      $("#detail").innerHTML = "";
+      renderMiss(state.missing);
+      $("#sumKcal").textContent = "0";
+      return;
+    }
+
+    $("#sumKcal").textContent = fmt(Math.round(total));
+
+    if (c.zero) {
+      $("#mcLabel").textContent = "你这一单，要爬";
+      $("#floors").textContent = "0";
+      $("#floorUnit").textContent = "层楼";
+      $("#mcSub").innerHTML = "<b>热量接近于零</b><span class='sep'>·</span>楼也不用爬了，今天你赢麻了。";
+    } else {
+      $("#mcLabel").textContent = "你这一单，要爬";
+      $("#floors").textContent = fmt(Math.round(c["爬楼层数"]));
+      $("#floorUnit").textContent = "层楼";
+      $("#mcSub").innerHTML =
+        "<b>" + fmt(Math.round(total)) + "</b> kcal" +
+        "<span class='sep'>·</span>约 <b>" + Math.round(c["爬楼分钟"]) + "</b> 分钟" +
+        "<span class='sep'>·</span>爬升 <b>" + fmt(Math.round(c["爬楼高度米"])) + "</b> 米";
+    }
+
+    renderBars(c);
+    renderPayoff(c, total);
+    renderAlt(c);
+    renderDetail(recs, total);
+    renderMiss(state.missing);
+  }
+
+  function renderBars(c) {
+    const h = c["爬楼高度米"];
+    if (c.zero) { $("#bars").innerHTML = '<div class="bar-note">没有热量，就没有海拔。</div>'; return; }
+
+    const lm = E.landmarkNote(h);
+    const max = Math.max(h, lm ? lm.h : 0) * 1.02 || 1;
+    const rows = [
+      { n: "你", v: h, cls: "you" },
+      { n: "深圳平安金融中心", v: 599, cls: "lm" },
+      { n: "上海中心大厦", v: 632, cls: "lm" }
+    ].map(function (r) {
+      return '<div class="bar-row"><span class="bl">' + r.n + '</span>' +
+        '<span class="bar"><i class="' + r.cls + '" style="width:' + (r.v / max * 100).toFixed(1) + '%"></i></span>' +
+        '<span class="bv">' + fmt(Math.round(r.v)) + " m</span></div>";
+    }).join("");
+
+    let note;
+    if (lm) {
+      note = "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b> —— 约等于 <b>" +
+        lm.ratio.toFixed(1) + " 个" + lm.name + "</b>叠起来那么高。";
+    } else {
+      const nxt = E.nextLandmark(h);
+      note = nxt
+        ? "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b> —— 离" + nxt.name + "还差 <b>" +
+          fmt(Math.round(nxt.gap)) + " 米</b>。"
+        : "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b>。";
+    }
+    $("#bars").innerHTML = rows + '<div class="bar-note">' + note + "</div>";
+  }
+
+  function renderPayoff(c, total) {
+    const plans = E.payoffPlans(total, state.weight);
+    if (!plans.length) {
+      $("#payoff").innerHTML = '<div class="chip"><div class="ct">这顿热量接近于零，<b>你什么都不欠</b>。</div></div>';
+      return;
+    }
+    $("#payoff").innerHTML = plans.map(function (p, i) {
+      return '<div class="chip">' + icon(p.ic) +
+        '<div class="ct"><b>' + p.v + "</b> " + p.t + "<span>" + p.s + "（三选一，第 " + (i + 1) + " 个）</span></div></div>";
+    }).join("");
+  }
+
+  function renderAlt(c) {
+    if (c.zero) { $("#alt").innerHTML = '<div><b>0</b><span>什么也没有</span></div>'; return; }
+    const cells = [
+      [dec(c["白米饭碗数"], 1), "碗白米饭"],
+      [fmt(Math.round(c["方糖块数"])), "块方糖"],
+      [dec(c["食用油汤匙"], 1), "汤匙食用油"],
+      [dec(c["苹果个数"], 1), "个苹果"],
+      [fmt(Math.round(c["深蹲次数"])), "次深蹲"],
+      [Math.round(c["跳绳分钟"]), "分钟跳绳"],
+      [Math.round(c["快走分钟"]), "分钟快走"],
+      [Math.round(c["骑车分钟"]), "分钟骑车"]
+    ];
+    $("#alt").innerHTML = cells.map(function (x) {
+      return "<div><b>" + x[0] + "</b><span>" + x[1] + "</span></div>";
+    }).join("");
+  }
+
+  function renderDetail(recs, total) {
+    const rows = recs.map(function (r) {
+      const tag = r.query !== r.name ? "<em>由「" + escapeHtml(r.query) + "」认出</em>" : "";
+      return '<li><span class="dn">' + escapeHtml(r.name) + tag + "</span>" +
+        '<span class="dk">' + fmt(Math.round(r.kcal)) + "</span></li>";
+    }).join("");
+    const sum = '<li class="sum"><span>合计</span><span class="dk">' +
+      fmt(Math.round(total)) + " kcal</span></li>";
+    $("#detail").innerHTML = rows + sum;
+  }
+
+  function renderMiss(list) {
+    $("#miss").innerHTML = list && list.length
+      ? '<div class="miss">这些没认出来，已跳过：' + list.map(escapeHtml).join("、") + "</div>"
+      : "";
+  }
+
+  /* ---------- 分享文案 ---------- */
+  function shareText() {
+    const res = E.buildRecords(state.basket);
+    const recs = res.records;
+    if (!recs.length) return "mcd-what-you-ate —— 把麦当劳的热量翻译成要爬多少层楼。";
+    const total = recs.reduce(function (a, b) { return a + b.kcal; }, 0);
+    const c = E.convert(total, state.weight);
+    const rank = E.rankOf(total);
+    if (c.zero) {
+      return "我这一单（" + recs.map(function (r) { return r.name; }).join(" + ") +
+        "）热量接近于零，楼也不用爬了。\n段位：" + rank + " #mcdWhatYouAte";
+    }
+    const lm = E.landmarkNote(c["爬楼高度米"]);
+    return "我这一单吃了 " + fmt(Math.round(total)) + " kcal —— 要爬 " +
+      fmt(Math.round(c["爬楼层数"])) + " 层楼。\n" +
+      recs.map(function (r) { return r.name; }).join(" + ") + "，段位：" + rank + "。\n" +
+      (lm ? "楼梯高 " + fmt(Math.round(c["爬楼高度米"])) + " 米，约等于 " + lm.ratio.toFixed(1) + " 个" + lm.name + "叠起来。\n" : "") +
+      "数据来自麦当劳官方营养库。#mcdWhatYouAte";
+  }
+
+  function copyText(t) {
+    const done = function () {
+      const b = $("#copyBtn"), old = b.textContent;
+      b.textContent = "已复制";
+      setTimeout(function () { b.textContent = old; }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done, function () { fallback(t, done); });
+    } else { fallback(t, done); }
+  }
+  function fallback(t, done) {
+    const ta = document.createElement("textarea");
+    ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- 事件 ---------- */
+  function refresh() { renderTabs(); renderGrid(); renderBasket(); renderResult(); }
+
+  function addNames(list) {
+    const miss = [];
+    list.forEach(function (raw) {
+      const hit = E.resolveName(raw);
+      if (!hit) { miss.push(raw); return; }
+      if (state.basket.indexOf(hit) === -1) state.basket.push(hit);
+    });
+    // 认不出的词必须显式告诉用户，不能静默吞掉 —— 否则他会以为「加上了」。
+    state.missing = miss;
+    refresh();
+  }
+
+  document.addEventListener("click", function (ev) {
+    const tab = ev.target.closest(".tab");
+    if (tab) { state.tab = tab.dataset.tab; state.q = ""; $("#q").value = ""; refresh(); return; }
+
+    const pick = ev.target.closest(".pick");
+    if (pick) {
+      const n = pick.dataset.name;
+      const i = state.basket.indexOf(n);
+      if (i === -1) state.basket.push(n); else state.basket.splice(i, 1);
+      state.missing = [];
+      refresh(); return;
+    }
+
+    const del = ev.target.closest("[data-del]");
+    if (del) { state.basket.splice(Number(del.dataset.del), 1); refresh(); return; }
+  });
+
+  $("#q").addEventListener("input", function (e) { state.q = e.target.value; refresh(); });
+  $("#q").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { addNames(e.target.value.split(/[\s,，、+＋]+/).filter(Boolean)); e.target.value = ""; state.q = ""; }
+  });
+  $("#addBtn").addEventListener("click", function () {
+    addNames($("#q").value.split(/[\s,，、+＋]+/).filter(Boolean));
+    $("#q").value = ""; state.q = "";
+  });
+  $("#weight").addEventListener("input", function () {
+    state.weight = Number(this.value);
+    $("#weightVal").textContent = state.weight + " kg";
+    renderResult();
+  });
+  $("#copyBtn").addEventListener("click", function () { copyText(shareText()); });
+
+  /* ---------- 初始化 ---------- */
+  $("#stairSvg").innerHTML = stairSvg();
+  $("#dbCount").textContent = Object.keys(E.TABLE).length;
+  $("#weightVal").textContent = state.weight + " kg";
+  refresh();
+})();
+</script>
+</body>
+</html>

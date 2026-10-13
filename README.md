@@ -21,7 +21,7 @@
 
 它：
 > 802 kcal —— 段位：黄金麦友
-> 🧱 要爬 456 层楼（约 91 分钟，爬升 1367 米）
+> 🏢 要爬 456 层楼（约 91 分钟，爬升 1367 米）
 > 🏃 或者跑步 100 分钟
 > 🦵 或者深蹲 4812 次
 > 🍚 或者 4.6 碗白米饭 / 50 块方糖 / 8.9 汤匙油
@@ -30,6 +30,32 @@
 ```
 
 **关键点：所有数字都是真的。** 热量来自麦当劳 MCP 的 `list-nutrition-foods` 接口，运动当量按公开的 MET（代谢当量）值换算。荒诞感不靠编造，靠的是把准确数据换成一个荒谬的单位。
+
+## 先看效果：可交互 Demo
+
+打开 [`index.html`](./index.html) 就能玩 —— **单文件、零依赖、离线可跑**，双击即开。
+
+![界面效果](assets/demo-desktop.png)
+
+它不是一张截图，是真的能点：
+
+| 你操作 | 它反应 |
+|---|---|
+| 点一个餐品 | 层数、段位、还债方案实时重算 |
+| 拖体重滑块 | 运动当量随之变化（体重越大，还债越快）|
+| 输入「大薯 板烧 零度」 | 走别名引擎，解析成官方商品名 |
+| 输错一个字 | 明确告诉你「没认出来」，不静默吞掉 |
+
+手机上同样验证过（375px 宽，无横向滚动）：
+
+<img src="assets/demo-mobile.png" width="280" alt="移动端效果">
+
+> 真实使用时**不需要**打开这个页面。你在 WorkBuddy 里说一句「我吃了巨无霸和中薯条」，得到的就是上面那张卡片。
+> Demo 存在的意义是让评委和用户**直接看见**产品长什么样 —— 而不是只能靠想象。
+>
+> 界面里的所有数字由 `index.html` 内嵌的 JS 引擎算出，与 `scripts/calorie_engine.py` 逐项对齐，
+> 用 `node scripts/verify_demo.js` 可以一键校验（22 项基准全绿才算通过）。
+
 
 ## 它不做什么
 
@@ -95,10 +121,15 @@ cp -r mcd-what-you-ate <你的项目>/.workbuddy/skills/
 ### 第三步：验证
 
 ```bash
+# 能打印出账单即安装成功
 python scripts/calorie_engine.py 巨无霸 中薯条
+
+# 自检：营养库与别名表一致性 + 5 项基准防回归（10 项全绿才算完成）
+python scripts/calorie_engine.py --doctor
 ```
 
-能打印出账单即安装成功。
+`--doctor` 是本项目的质量门禁。营养库是官方接口的快照，别名表是人工维护的，
+两者一旦不同步，用户就会拿到**错误但看起来完全正常**的热量 —— 自检把这类静默错误变成显式失败。
 
 ## 使用示例
 
@@ -109,7 +140,7 @@ python scripts/calorie_engine.py 巨无霸 中薯条
 
 输出：
 > 864 kcal —— 段位：黄金麦友
-> 🧱 要爬 491 层楼（约 98 分钟，爬升 1473 米）
+> 🏢 要爬 491 层楼（约 98 分钟，爬升 1473 米）
 > ...
 ```
 
@@ -174,18 +205,24 @@ python scripts/calorie_engine.py 巨无霸 --json
 
 ```
 mcd-what-you-ate/
+├── index.html                  # 可交互 Demo（单文件、零依赖、离线可跑）
 ├── SKILL.md                    # WorkBuddy Skill 定义
 ├── README.md                   # 本文档
+├── CHANGELOG.md                # 迭代记录（含三个已修复的静默计算错误）
 ├── CONTEST_DECLARATION.md      # 参赛声明（官方原版，未作任何修改）
 ├── MCP_INTEGRATION.md          # MCP 集成说明
 ├── mcp-config.example.json     # 脱敏配置示例（仅环境变量占位符）
 ├── workbuddy.md                # WorkBuddy 开发对话上下文
 ├── scripts/
-│   └── calorie_engine.py       # 换算引擎（无第三方依赖）
+│   ├── calorie_engine.py       # 换算引擎（无第三方依赖）
+│   ├── build_demo.py           # 把营养库快照注入 index.html
+│   └── verify_demo.js          # 校验 Demo 内嵌引擎与 Python 引擎逐项一致
 ├── data/
 │   └── nutrition_raw.csv       # 官方营养库快照（158 条 SKU）
 └── assets/
-    └── ip-climb-stairs-v2.0.png
+    ├── ip-climb-stairs-v2.0.png
+    ├── demo-desktop.png
+    └── demo-mobile.png
 ```
 
 ## MCP 使用情况

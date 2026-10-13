@@ -86,7 +86,7 @@ python scripts/calorie_engine.py 巨无霸 --json          # 二次开发用
 
 **XXX kcal —— 段位：{段位}**
 
-🧱 要爬 **XXX 层楼**（约 XX 分钟，爬升 XXX 米）
+🏢 要爬 **XXX 层楼**（约 XX 分钟，爬升 XXX 米）
 🏃 或者跑步 **XX 分钟**
 🦵 或者深蹲 **XXXX 次**
 🍚 或者 **X.X 碗白米饭** / **XX 块方糖** / **X.X 汤匙油**

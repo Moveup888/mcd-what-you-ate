@@ -274,7 +274,7 @@ def render(items: List[dict], weight_kg: float = DEFAULT_WEIGHT_KG) -> str:
         lines.append("> 🫥 这一单热量接近于零。楼也不用爬了，今天你赢麻了。")
     else:
         lines.append(">")
-        lines.append("> 🧱 要爬 **%.0f 层楼**（约 %.0f 分钟，爬升 %.0f 米）" % (
+        lines.append("> 🏢 要爬 **%.0f 层楼**（约 %.0f 分钟，爬升 %.0f 米）" % (
             c["爬楼层数"], c["爬楼分钟"], c["爬楼高度米"]))
         lines.append("> 🏃 或者跑步 **%.0f 分钟**" % c["跑步分钟"])
         lines.append("> 🦵 或者深蹲 **%.0f 次**" % c["深蹲次数"])
