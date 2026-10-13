@@ -20,6 +20,7 @@ mcd-what-you-ate 换算引擎
 
 import argparse
 import json
+import math
 import os
 import sys
 from typing import Dict, List, Optional, Tuple
@@ -149,7 +150,13 @@ def load_nutrition(path: str = DATA_FILE) -> Dict[str, dict]:
 
 def resolve_name(query: str, items: Dict[str, dict]) -> Optional[str]:
     """把用户口语化的叫法解析成营养库里的正式商品名。"""
-    q = query.strip()
+    q = str(query or "").strip()
+    # ⚠️ 空查询必须在这里拦掉，不能落到下面的子串兜底。
+    # 因为 "" in n 对**任何**字符串都为真，空输入会静默命中"最短的商品名"
+    # （实际是「纯悦」，0 kcal），用户会看到一张完全不属于自己的账单。
+    # JS 侧有多年来一直写对的 `if (!q) return null`，此处补齐以保证两引擎行为一致。
+    if not q:
+        return None
     if q in items:
         return q
     low = q.lower()
@@ -178,6 +185,24 @@ def met_kcal_per_min(met: float, weight_kg: float) -> float:
     return met * weight_kg / 60.0
 
 
+def safe_weight(weight_kg: float) -> float:
+    """把非法体重收敛成可用的数值。
+
+    ⚠️ 为什么在 convert 里收敛而不是抛异常：convert 的铁律是**键集合恒定**，
+    一旦抛异常，调用方连字段都拿不到。所以这里静默收敛，由 CLI 层
+    （main 的 --weight 校验）负责向用户明确报错 —— 双层防御。
+
+    触发场景：0（除零崩溃）、负数（得出负的爬楼层数）、nan/inf（污染全表）。
+    """
+    try:
+        w = float(weight_kg)
+    except (TypeError, ValueError):
+        return DEFAULT_WEIGHT_KG
+    if not math.isfinite(w) or w <= 0:
+        return DEFAULT_WEIGHT_KG
+    return w
+
+
 def convert(kcal: float, weight_kg: float = DEFAULT_WEIGHT_KG) -> dict:
     """把热量翻译成各类生活化当量。
 
@@ -186,6 +211,7 @@ def convert(kcal: float, weight_kg: float = DEFAULT_WEIGHT_KG) -> dict:
     让下游拿不到字段而 KeyError —— 这是本项目已修复过的真实 bug。
     零热量时各字段自然为 0，并额外给出 zero=True 供展示层判断。
     """
+    weight_kg = safe_weight(weight_kg)
     stairs_kcal_min = met_kcal_per_min(MET_TABLE["爬楼梯"], weight_kg)
 
     out: dict = {
@@ -331,6 +357,26 @@ def doctor(table: Dict[str, dict]) -> int:
                    "字段一致（%d 个）" % len(keys_hot) if keys_hot == keys_zero
                    else "零热量缺少：%s" % (keys_hot - keys_zero)))
 
+    # 空查询会把 "" 当成子串命中**任意**商品（"" in n 恒为真），
+    # 静默返回一张不属于用户的账单。必须返回 None。
+    blank_ok = all(resolve_name(q, table) is None for q in ("", " ", "\t", "\n", "  \t "))
+    checks.append(("空查询不误命中商品", blank_ok,
+                   "空/纯空白查询全部返回 None" if blank_ok
+                   else "空查询命中了：%s" % [resolve_name(q, table) for q in ("", " ", "\t")]))
+
+    # 非法体重（0/负数/nan）曾导致除零崩溃与负的爬楼层数
+    try:
+        base = convert(500, DEFAULT_WEIGHT_KG)
+        bad_w = [convert(500, w) for w in (0, -60, float("nan"))]
+        weight_ok = all(
+            set(b.keys()) == set(base.keys())
+            and abs(b["爬楼层数"] - base["爬楼层数"]) < 1e-9
+            for b in bad_w)
+        detail = "0/负数/nan 均收敛为默认体重且不崩" if weight_ok else "未正确收敛"
+    except Exception as e:                                  # noqa: BLE001
+        weight_ok, detail = False, "%s: %s" % (type(e).__name__, e)
+    checks.append(("非法体重安全收敛", weight_ok, detail))
+
     # 基准用例：数字一旦漂移，说明数据或换算被改坏
     baseline = [
         ("巨无霸", 513.0),
@@ -396,6 +442,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="自检：营养库与别名表一致性、基准防回归")
     args = ap.parse_args(argv)
 
+    # ⚠️ 体重必须**显式报错**，不能静默兜底：
+    # 0 会让换算除零崩溃，负数会算出"负的爬楼层数"这种无意义结果。
+    # 静默修正成默认值更坏 —— 用户会拿到一个看起来完全正常的错数字。
+    if not math.isfinite(args.weight) or args.weight <= 0:
+        ap.error("--weight 必须是大于 0 的数值（收到 %r）" % args.weight)
+    if not 25 <= args.weight <= 350:
+        print("⚠️  体重 %.1fkg 超出常见范围（25–350kg），请确认输入无误。" % args.weight,
+              file=sys.stderr)
+
     table = load_nutrition()
 
     if args.doctor:
@@ -414,8 +469,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.items:
         records, missing = build_records(args.items, table)
         if not records:
-            print("没认出来：[%s]" % "、".join(missing), file=sys.stderr)
-            print("提示：用 --list 看看营养库里有什么。", file=sys.stderr)
+            # 全是空白输入时 missing 里是空串，直接 join 会打印出 "没认出来：[]"，
+            # 用户看不懂。分开提示。
+            blanks = [x for x in missing if not str(x).strip()]
+            if len(blanks) == len(missing):
+                print("请提供至少一个餐品名（收到的参数是空的）。", file=sys.stderr)
+                print("示例：python calorie_engine.py 巨无霸 中薯条", file=sys.stderr)
+            else:
+                print("没认出来：%s" % "、".join(
+                    x for x in missing if str(x).strip()), file=sys.stderr)
+                print("提示：用 --list 看看营养库里有什么。", file=sys.stderr)
             return 2
     else:
         ap.print_help()

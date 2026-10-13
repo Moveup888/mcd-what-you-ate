@@ -54,7 +54,7 @@
 > Demo 存在的意义是让评委和用户**直接看见**产品长什么样 —— 而不是只能靠想象。
 >
 > 界面里的所有数字由 `index.html` 内嵌的 JS 引擎算出，与 `scripts/calorie_engine.py` 逐项对齐，
-> 用 `node scripts/verify_demo.js` 可以一键校验（22 项基准全绿才算通过）。
+> 用 `node scripts/verify_demo.js` 可以一键校验（24 项基准全绿才算通过）。
 
 
 ## 它不做什么
@@ -124,12 +124,22 @@ cp -r mcd-what-you-ate <你的项目>/.workbuddy/skills/
 # 能打印出账单即安装成功
 python scripts/calorie_engine.py 巨无霸 中薯条
 
-# 自检：营养库与别名表一致性 + 5 项基准防回归（10 项全绿才算完成）
+# 自检：数据一致性 + 边界安全 + 5 项基准防回归（12 项全绿才算完成）
 python scripts/calorie_engine.py --doctor
+
+# 对抗性压力测试：极端参数、空输入、畸形输入（退出码非 0 = 有问题）
+python scripts/stress_test.py
+
+# 跨语言一致性：Demo 内嵌的 JS 引擎 vs Python 引擎（24 项，需 node）
+node scripts/verify_demo.js
 ```
 
 `--doctor` 是本项目的质量门禁。营养库是官方接口的快照，别名表是人工维护的，
 两者一旦不同步，用户就会拿到**错误但看起来完全正常**的热量 —— 自检把这类静默错误变成显式失败。
+
+`stress_test.py` 是它的补充：自检只覆盖已知基准，压力测试负责**去发现未知的**软肋。
+本项目的两个真实缺陷（空输入被静默解析成一款商品、`--weight 0` 除零崩溃）都是它一次跑出来的，
+修复后已固化为 `--doctor` 的永久检查项。
 
 ## 使用示例
 
@@ -215,6 +225,7 @@ mcd-what-you-ate/
 ├── workbuddy.md                # WorkBuddy 开发对话上下文
 ├── scripts/
 │   ├── calorie_engine.py       # 换算引擎（无第三方依赖）
+│   ├── stress_test.py          # 对抗性压力测试（边界 / 畸形输入 / 全库渲染）
 │   ├── build_demo.py           # 把营养库快照注入 index.html
 │   └── verify_demo.js          # 校验 Demo 内嵌引擎与 Python 引擎逐项一致
 ├── data/

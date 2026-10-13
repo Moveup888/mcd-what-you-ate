@@ -403,9 +403,20 @@ function resolveName(q) {
 
 function metKcalPerMin(met, w) { return met * w / 60.0; }
 
+/* 非法体重（0/负数/NaN/Infinity）会除零或算出负的爬楼层数，收敛为默认值。
+   与 Python 侧 safe_weight() 行为一致 —— 两引擎必须同步，否则同一输入
+   会给出不同数字，违背 README「数字同源」的承诺。 */
+const DEFAULT_WEIGHT = 60;
+function safeWeight(w) {
+  const v = Number(w);
+  if (!isFinite(v) || v <= 0) return DEFAULT_WEIGHT;
+  return v;
+}
+
 /* ⚠️ 铁律：无论热量是否为 0，返回的键集合必须完全一致。
    任何提前 return 都会让下游 KeyError —— 这是已修复过的真实 bug。 */
 function convert(kcal, w) {
+  w = safeWeight(w);
   const sm = metKcalPerMin(MET.stairs, w);
   const out = {
     "爬楼层数": kcal / (sm * SEC_PER_FLOOR / 60.0),

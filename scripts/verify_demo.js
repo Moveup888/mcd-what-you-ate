@@ -48,6 +48,23 @@ const kh = Object.keys(E.convert(800, 60)).sort().join(",");
 const kz = Object.keys(E.convert(0, 60)).sort().join(",");
 check("零热量返回字段完整", kh === kz, "字段一致（" + Object.keys(E.convert(0, 60)).length + " 个）");
 
+// 空查询必须返回 null（"" 是任意字符串的子串，会静默命中商品）
+// 与 Python resolve_name 的空值守卫对齐
+const blank = ["", " ", "\t", "\n", "  \t "];
+const blankBad = blank.filter(q => E.resolveName(q) !== null);
+check("空查询不误命中商品", blankBad.length === 0,
+  blankBad.length ? "命中了: " + blankBad.map(q => E.resolveName(q)).join(",") : "空/纯空白查询全部返回 null");
+
+// 非法体重必须收敛为默认值（且不产生 NaN），与 Python safe_weight 对齐
+const wBase = E.convert(500, 60);
+const wBad = [0, -60, NaN, Infinity].map(w => E.convert(500, w));
+const wOk = wBad.every(function (b) {
+  return Object.keys(b).join(",") === Object.keys(wBase).join(",") &&
+    Math.abs(b["爬楼层数"] - wBase["爬楼层数"]) < 1e-9;
+});
+check("非法体重安全收敛", wOk,
+  wOk ? "0/负数/NaN/Infinity 均收敛为 60kg 且不产生 NaN" : "未正确收敛");
+
 // 别名解析
 [["大薯", "大薯条"], ["板烧", "板烧鸡腿堡"], ["零度", "无糖可口可乐中杯"], ["big mac", "巨无霸"]]
   .forEach(function (a) {
