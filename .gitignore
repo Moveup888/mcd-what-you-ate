@@ -1,0 +1,28 @@
+# ===== 凭据（绝对禁止提交）=====
+.env
+.env.*
+*.token
+*.pem
+mcp-config.json
+mcp-config.*.json
+!mcp-config.example.json
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 本地草稿 =====
+*.local.md
+*.bak
+弃用稿/
