@@ -235,14 +235,47 @@ def convert(kcal: float, weight_kg: float = DEFAULT_WEIGHT_KG) -> dict:
     return out
 
 
-def landmark_note(height_m: float) -> Optional[str]:
-    """给出"比你爬的楼还矮"的地标参照，制造荒诞感。"""
+def landmark_of(height_m: float) -> Optional[Dict[str, object]]:
+    """引擎层：返回最高的那个"已经够到"的地标（结构化，文案交给展示层）。
+
+    与 Demo 引擎的 landmarkNote() 一一对应 —— 引擎只给数，不给文案。
+    """
     if height_m <= 0:
         return None
     for name, h in LANDMARKS:
         if height_m >= h:
-            ratio = height_m / h
-            return "约等于 %.0f 个%s叠起来那么高" % (ratio, name)
+            return {"name": name, "h": float(h), "ratio": height_m / h}
+    return None
+
+
+def next_landmark(height_m: float) -> Optional[Dict[str, object]]:
+    """引擎层：返回下一个"还没够到"的地标，让轻食订单也有参照物。
+
+    与 Demo 引擎的 nextLandmark() 一一对应。
+    """
+    if height_m <= 0:
+        return None
+    for name, h in LANDMARKS:
+        if height_m < h:
+            return {"name": name, "h": float(h), "gap": h - height_m}
+    return None
+
+
+def landmark_note(height_m: float) -> Optional[str]:
+    """展示层：把地标换算成人话。任意正高度都有输出，不留空档。
+
+    两条与 Demo 对齐的硬约定：
+    1. 精度统一为**一位小数** —— 0 位会把 2.28 和 2.01 都说成"2 个"，丢失区分度，
+       且与 Demo 的 toFixed(1) 说法不一致；
+    2. 够不到最低地标时退化为"还差多少米" —— 否则轻食订单（501 米）整行消失，
+       同一单在 CLI 有参照、在 Demo 没有，违背 README 的"两引擎同源"承诺。
+    """
+    lm = landmark_of(height_m)
+    if lm:
+        return "约等于 %.1f 个%s叠起来那么高" % (lm["ratio"], lm["name"])
+    nxt = next_landmark(height_m)
+    if nxt:
+        return "离%s还差 %.0f 米" % (nxt["name"], nxt["gap"])
     return None
 
 
@@ -376,6 +409,18 @@ def doctor(table: Dict[str, dict]) -> int:
     except Exception as e:                                  # noqa: BLE001
         weight_ok, detail = False, "%s: %s" % (type(e).__name__, e)
     checks.append(("非法体重安全收敛", weight_ok, detail))
+
+    # 地标参照：任意正高度都必须有输出（轻食退化为"还差多少米"），
+    # 且精度必须与 Demo 同为一位小数 —— 否则同一单在 CLI 与 Demo 会出现两种说法。
+    nm_hot = landmark_note(1367) or ""
+    nm_lite = landmark_note(501) or ""
+    lm_ok = ((landmark_of(1367) or {}).get("name") == "深圳平安金融中心"
+             and landmark_of(501) is None
+             and "2.3" in nm_hot and "还差" in nm_lite
+             and landmark_note(0) is None)
+    checks.append(("地标参照覆盖与精度", lm_ok,
+                   "1367m → %s ；501m → %s" % (nm_hot, nm_lite) if lm_ok
+                   else "异常：1367m → %r ；501m → %r" % (nm_hot, nm_lite)))
 
     # 基准用例：数字一旦漂移，说明数据或换算被改坏
     baseline = [

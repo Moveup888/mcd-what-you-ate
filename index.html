@@ -679,6 +679,8 @@ globalThis.Engine = {
 
     const lm = E.landmarkNote(h);
     const max = Math.max(h, lm ? lm.h : 0) * 1.02 || 1;
+    // 对比条只放两个地标当"刻度"（深圳平安金融中心 599 / 上海中心大厦 632），
+    // 是可视化的视觉锚点，不随 LANDMARKS 数组变动 —— 与文字参照是两码事。
     const rows = [
       { n: "你", v: h, cls: "you" },
       { n: "深圳平安金融中心", v: 599, cls: "lm" },
@@ -691,14 +693,14 @@ globalThis.Engine = {
 
     let note;
     if (lm) {
-      note = "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b> —— 约等于 <b>" +
+      note = "你爬的这栋楼高 <b>" + fmt(Math.round(h)) + " 米</b> —— 约等于 <b>" +
         lm.ratio.toFixed(1) + " 个" + lm.name + "</b>叠起来那么高。";
     } else {
       const nxt = E.nextLandmark(h);
       note = nxt
-        ? "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b> —— 离" + nxt.name + "还差 <b>" +
+        ? "你爬的这栋楼高 <b>" + fmt(Math.round(h)) + " 米</b> —— 离" + nxt.name + "还差 <b>" +
           fmt(Math.round(nxt.gap)) + " 米</b>。"
-        : "你爬的这一串楼梯高 <b>" + fmt(Math.round(h)) + " 米</b>。";
+        : "你爬的这栋楼高 <b>" + fmt(Math.round(h)) + " 米</b>。";
     }
     $("#bars").innerHTML = rows + '<div class="bar-note">' + note + "</div>";
   }

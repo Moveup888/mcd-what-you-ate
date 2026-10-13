@@ -82,9 +82,19 @@ check("802kcal 爬楼高度 = 1367 米", Math.round(c["爬楼高度米"]) === 13
 check("段位 802 -> 黄金麦友", E.rankOf(802) === "黄金麦友", E.rankOf(802));
 check("段位 294 -> 青铜麦友", E.rankOf(294) === "青铜麦友", E.rankOf(294));
 
-// 地标参照
-const lm = E.landmarkNote(1368);
-check("地标参照存在", !!lm, lm ? lm.ratio.toFixed(2) + " 个" + lm.name : "无");
+// 地标参照（引擎层返回结构、展示层格式化为一位小数 —— 与 Python landmark_note 对齐）
+// 1367 / 599 = 2.2818…，一位小数 = 2.3；0 位会把 2.28 与 2.01 都说成"2 个"
+const lm = E.landmarkNote(1367);
+check("地标 1367 米 -> 平安金融中心", !!(lm && lm.name === "深圳平安金融中心"),
+  lm ? lm.ratio.toFixed(2) + " 个" + lm.name : "无");
+check("地标精度一位小数 = 2.3", !!(lm && lm.ratio.toFixed(1) === "2.3"),
+  lm ? lm.ratio.toFixed(1) + " 个" : "无");
+check("599 米整算够到最低地标",
+  !!(E.landmarkNote(599) && E.landmarkNote(599).name === "深圳平安金融中心"), ">= 判定为够到");
+check("598.9 米够不到（走兜底）", E.landmarkNote(598.9) === null, "< 判定为未够到");
+const nx = E.nextLandmark(501);
+check("501 米下一地标差 98 米", !!(nx && Math.round(nx.gap) === 98),
+  nx ? "离" + nx.name + "还差 " + Math.round(nx.gap) + " 米" : "无");
 
 // 三个真实场景锚点：与 Python 引擎实测输出逐项对齐
 const scenes = [

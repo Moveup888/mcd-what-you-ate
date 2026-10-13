@@ -140,16 +140,37 @@ print("F. 地标参照（爬升高度换算）")
 print("=" * 68)
 for h in [0, 1, 10, 100, 500, 598, 599, 600, 1367, 10000, 100000]:
     try:
-        lm = m.landmark_note(h)   # 返回 str 或 None
+        lm = m.landmark_note(h)   # 返回 str；h <= 0 时为 None
         print("  %-8d 米 → %s" % (h, lm if lm else "（无参照）"))
     except Exception as e:
         fails.append("landmark_note(%s) 崩溃：%s" % (h, e))
         print("  💥 %-8d 米 → %s: %s" % (h, type(e).__name__, e))
-# 覆盖性检查：低于最低地标的高度全部拿不到参照
-no_lm = [h for h in [100, 300, 500, 598] if m.landmark_note(h) is None]
+# 覆盖性检查：任何正高度都必须有参照，轻食订单不能缺这块内容
+# （此前 <599 米直接返回 None，CLI 少一行、Demo 却有"还差多少米"，两引擎说法不一致）
+no_lm = [h for h in [1, 100, 300, 500, 598] if m.landmark_note(h) is None]
 if no_lm:
-    warns.append("爬升 %s 米以下没有地标参照（最低地标 599 米），轻食订单会缺这块内容" % max(no_lm))
-    print("  ⚠️  爬升 ≤%d 米时无参照 —— 轻食订单（如吉士汉堡 501 米）会缺这行" % max(no_lm))
+    fails.append("爬升 %s 米没有地标参照，轻食订单会缺这块内容" % no_lm)
+    print("  ❌ 爬升 %s 米无参照 —— 轻食订单（如吉士汉堡 501 米）会缺这行" % no_lm)
+else:
+    print("  ✅ 任意正高度都有参照（够不到最低地标时退化为“还差多少米”）")
+# 精度契约：必须一位小数。0 位会把 2.28 与 2.01 都说成"2 个"，且与 Demo 的 toFixed(1) 不一致
+note_1367 = m.landmark_note(1367) or ""
+note_501 = m.landmark_note(501) or ""
+if "2.3" not in note_1367:
+    fails.append("地标精度未对齐一位小数：%r" % note_1367)
+elif "还差" not in note_501:
+    fails.append("轻食兜底文案缺失：%r" % note_501)
+else:
+    print("  ✅ 精度一位小数 + 轻食兜底")
+    print("     1367 米 → %s" % note_1367)
+    print("     501  米 → %s" % note_501)
+# 边界：恰好 599 米应当算"够到"，598 米应当"差 1 米"
+if (m.landmark_of(599) or {}).get("name") != "深圳平安金融中心":
+    fails.append("599 米整未判定为够到最低地标")
+elif (m.landmark_of(598.9) or {}) != {}:
+    fails.append("598.9 米不应判为够到 599 米地标")
+else:
+    print("  ✅ 边界 599 米整算够到 / 598.9 米走兜底")
 
 print()
 print("=" * 68)
