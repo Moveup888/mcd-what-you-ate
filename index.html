@@ -34,6 +34,34 @@ body{
 .hero h1 span{color:var(--red)}
 .hero .sub{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
 .tagline{background:var(--ink);color:#fff;font-size:12px;padding:6px 13px;border-radius:999px;white-space:nowrap}
+.hero-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gh-link{
+  display:inline-flex;align-items:center;gap:6px;border:2px solid var(--ink);
+  border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;
+  color:var(--ink);background:#fff;text-decoration:none;white-space:nowrap;
+  transition:background .15s;
+}
+.gh-link:hover{background:var(--yellow)}
+.gh-link svg{display:block;flex:0 0 auto}
+
+/* ---------- 底部 Star 引导（转化出口） ---------- */
+.cta{
+  margin-top:18px;background:var(--ink);color:#fff;border:2px solid var(--ink);
+  border-radius:var(--r);padding:16px 18px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.cta-txt{min-width:220px;flex:1}
+.cta-txt h2{margin:0 0 4px;font-size:15px;font-weight:800;letter-spacing:-.01em}
+.cta-txt p{margin:0;font-size:12.5px;color:#D6D6D6;line-height:1.6}
+.cta-btn{
+  display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;
+  background:var(--yellow);color:var(--brown);border:2px solid var(--yellow);
+  border-radius:12px;padding:11px 20px;font-size:14px;font-weight:800;
+  text-decoration:none;white-space:nowrap;transition:transform .08s;
+}
+.cta-btn:hover{transform:translateY(-2px)}
+.cta-btn:active{transform:translateY(1px)}
+.cta-btn svg{display:block;flex:0 0 auto}
 .note{
   background:#fff;border:2px solid var(--ink);border-left:7px solid var(--red);
   border-radius:12px;padding:10px 14px;font-size:13px;color:#4A4A4A;margin:0 0 18px;
@@ -223,7 +251,13 @@ body{
         <p class="sub">热量翻译官 · 只翻译，不评判</p>
       </div>
     </div>
-    <div class="tagline">数据源：麦当劳官方 MCP</div>
+    <div class="hero-r">
+      <span class="tagline">数据源：麦当劳官方 MCP</span>
+      <a class="gh-link" href="https://github.com/Moveup888/mcd-what-you-ate" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        开源仓库
+      </a>
+    </div>
   </header>
 
   <p class="note">
@@ -298,6 +332,17 @@ body{
     </section>
 
   </div>
+
+  <section class="cta">
+    <div class="cta-txt">
+      <h2>全部代码开源，欢迎来翻</h2>
+      <p>营养数据取自麦当劳官方 MCP，换算引擎纯标准库零依赖，每一层楼都能复算。觉得这东西有点意思，点个 Star 就是最大的支持。</p>
+    </div>
+    <a class="cta-btn" href="https://github.com/Moveup888/mcd-what-you-ate" target="_blank" rel="noopener">
+      <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      去 GitHub 点 Star
+    </a>
+  </section>
 
   <footer class="foot">
     <p><b>热量数据</b>来自麦当劳官方 MCP <code>list-nutrition-foods</code>，共 <b id="dbCount">0</b> 条商品，非估算值。</p>

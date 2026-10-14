@@ -10,6 +10,8 @@
 
 **🔗 [在线试玩](https://moveup888.github.io/mcd-what-you-ate/)** —— 不用安装、不用下载，点开就能用（内置 158 条官方营养库，离线可跑）
 
+**⭐ [点个 Star 支持](https://github.com/Moveup888/mcd-what-you-ate)** —— 这是「麦当劳 MCP 创新挑战」参赛作品，Star 数就是它的排名。
+
 ---
 
 ## 这是什么
@@ -63,7 +65,7 @@
 > Demo 存在的意义是让评委和用户**直接看见**产品长什么样 —— 而不是只能靠想象。
 >
 > 界面里的所有数字由 `index.html` 内嵌的 JS 引擎算出，与 `scripts/calorie_engine.py` 逐项对齐，
-> 用 `node scripts/verify_demo.js` 可以一键校验（24 项基准全绿才算通过）。
+> 用 `node scripts/verify_demo.js` 可以一键校验（28 项基准全绿才算通过）。
 
 
 ## 它不做什么
@@ -133,13 +135,13 @@ cp -r mcd-what-you-ate <你的项目>/.workbuddy/skills/
 # 能打印出账单即安装成功
 python scripts/calorie_engine.py 巨无霸 中薯条
 
-# 自检：数据一致性 + 边界安全 + 5 项基准防回归（12 项全绿才算完成）
+# 自检：数据一致性 + 边界安全 + 5 项基准防回归（13 项全绿才算完成）
 python scripts/calorie_engine.py --doctor
 
 # 对抗性压力测试：极端参数、空输入、畸形输入（退出码非 0 = 有问题）
 python scripts/stress_test.py
 
-# 跨语言一致性：Demo 内嵌的 JS 引擎 vs Python 引擎（24 项，需 node）
+# 跨语言一致性：Demo 内嵌的 JS 引擎 vs Python 引擎（28 项，需 node）
 node scripts/verify_demo.js
 ```
 
@@ -264,6 +266,20 @@ mcd-what-you-ate/
 
 - Python 3.8+
 - **无任何第三方依赖**（仅标准库）
+
+## 支持这个项目
+
+如果这个小东西让你笑了一下，或者让你第一次对「513 kcal」有了实感 ——
+
+**给仓库点个 ⭐ Star 就够了。**
+
+它是「麦当劳程序员创意开发大赛」的参赛作品，Star 数直接决定排名。你的一个星，比任何夸奖都实在。
+
+👉 **https://github.com/Moveup888/mcd-what-you-ate**
+
+想聊点别的也欢迎：
+- 提 Issue 说说你还想把什么食物翻译成「要爬多少层楼」
+- 用 `--json` 把换算引擎接进你自己的工具里（纯标准库，零依赖）
 
 ## 免责声明
 
